@@ -1,53 +1,79 @@
-node {
-    
- notify('Started')
- 
- stage ('SCM_Checkout') {
-    checkout([$class: 'GitSCM',
-        branches: [[name: '*/master']],
-        doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [],
-        userRemoteConfigs: [[url: 'https://github.com/ganeshhp/Maven-petclinic-project.git']]])
- }
- stage ('Build_Test and Package') {
-    sh 'mvn clean verify package'
-    junit 'target/surefire-reports/TEST*.xml'
- }
- 
- stage ('Archive and Notify') {
-    publishHTML(target: [allowMissing: true,
-                 alwaysLinkToLastBuild: false,
-                 keepAll: true,
-                 reportDir: 'target/site/jacoco',
-                 reportFiles: 'index.html',
-                 reportName: 'HTML Report',
-                 reportTitles: 'Code Coverage-Report'])
-    archiveArtifacts 'target/*.war'
-    step([$class: 'Mailer',
-        notifyEveryUnstableBuild: true,
-        recipients: 'cc:ganesh@automationfactory.in',
-        sendToIndividuals: false])
- }
- notify ('Waiting for Deployment')
- 
- input 'Deploy to Staging?'
- 
- stage ('Deploy to AppServer') {
- sh 'cp target/petclinic.war /opt/apache-tomcat-8.5.21/webapps'
- sh 'sudo /opt/apache-tomcat-8.5.21/bin/shutdown.sh'
- sh 'sudo /opt/apache-tomcat-8.5.21/bin/startup.sh'
- }
- 
- sh 'git push https://ganeshhp:<password>@github.com/ganeshhp/Maven-petclinic-project.git --all'
- 
- notify('Completed')
-}
- def notify(status) {
+/* This script is designed and maintained by Ganesh Palnitkar
+*/
+def notify(status) {
   mail (
         body:"""${status}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]':
                  Check console output at,
                  href='${env.BUILD_URL}'>${env.JOB_NAME} [${env.BUILD_NUMBER}]""",
-        cc: 'support@automationfactory.in',
+        cc: '<valid-email-id>',
         subject: """JenkinsNotification: ${status}:""",
-        to: 'ganesh@automationfactory.in'
+        to: '<alid-email-id>'
        )
  }
+def server = Artifactory.server 'artifactory'
+def uploadSpec = """{
+  "files": [
+	{
+	  "pattern": "target/petclinic.war",
+	  "target": "petclinic/"
+	}
+		   ]
+  }"""
+
+/*def downloadSpec = """{
+ "files": [
+  {
+      "pattern": "petclinic/*.war",
+      "target": "./"
+    }
+ ]
+}"""
+*/
+pipeline {
+ agent none
+    stages {
+      stage('SCM_Chekout') {
+          agent { label "master" }
+			steps {
+//			    script {
+//					notify('build-started')
+//				}
+                checkout([$class: 'GitSCM',
+                    branches: [[name: '*/master']],
+                    doGenerateSubmoduleConfigurations: false,
+                    extensions: [],
+                    submoduleCfg: [],
+                    userRemoteConfigs: [[url: 'file:////home/aartgp1_gmail_com/jenkins']]])
+            }
+        }
+      stage('Build'){
+          agent { label "master" }
+		steps {
+                    sh 'mvn clean package'
+            }
+        }
+
+	  stage('push-to-artifactory') {
+          agent { label "master" }
+		steps {
+                 script {
+     		    server.upload(uploadSpec)
+            }
+        }
+	}
+	  stage('Deploy') {
+          agent { label "appserver" }
+			steps {
+			    script {
+				  input('Deploy Package to Production?')
+				  notify('Deployment-to-Production')
+				}
+					sh 'wget http://35.231.176.62:8081/artifactory/application1/petclinic.war'
+					sh 'cp ./petclinic.war /opt/tomcat/webapps/'
+					sh '/opt/tomcat/bin/catalina.sh run'
+
+            }
+         }
+    }
+}
+
