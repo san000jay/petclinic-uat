@@ -43,7 +43,7 @@ pipeline {
                     doGenerateSubmoduleConfigurations: false,
                     extensions: [],
                     submoduleCfg: [],
-                    userRemoteConfigs: [[url: 'file:////home/aartgp1_gmail_com/jenkins']]])
+                    userRemoteConfigs: [[url: 'https://github.com/ganeshhp/PetClinicProject-UAT.git']]])
             }
         }
       stage('Build'){
