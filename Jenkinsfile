@@ -64,10 +64,10 @@ pipeline {
 	  stage('Deploy') {
           agent { label "appserver" }
 			steps {
-			    script {
-				  input('Deploy Package to Production?')
+//			    script {
+//				  input('Deploy Package to Production?')
 //				  notify('Deployment-to-Production')
-				}
+//				}
 					sh 'wget http://35.231.176.62:8081/artifactory/petclinic/petclinic.war'
 					sh 'cp ./petclinic.war /opt/tomcat/webapps/'
 					sh '/opt/tomcat/bin/catalina.sh run'
